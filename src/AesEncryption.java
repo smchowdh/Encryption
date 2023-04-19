@@ -1,3 +1,4 @@
+import javax.crypto.KeyGenerator;
 import java.util.Arrays;
 
 public class AesEncryption implements Encryption{
@@ -7,7 +8,7 @@ public class AesEncryption implements Encryption{
 
     public static void main (String[] args) {
         AesEncryption x = new AesEncryption("lemon");
-        x.calculateRijndaelSBox();
+        x.encrypt("Two One Nine Two");
 
     }
 
@@ -77,14 +78,62 @@ public class AesEncryption implements Encryption{
         return sbox;
     }
 
+    public AesEncryption() {
+        sbox = calculateRijndaelSBox();
+    }
     public AesEncryption(String encryptionKey) {
         this.encryptionKey = encryptionKey;
         sbox = calculateRijndaelSBox();
     }
 
-    @Override
-    public String encrypt(String message) {
+    /* Converts plainText into its byte equivalent so that we can work with it.
+     * The first index points to the 4x4 state matrix of portion of plainText we are looking at.
+     * The second and third index denote to the byte in 4x4 state matrix
 
+     */
+    private int[][][] convertToBytes(String plainText) {
+
+        //Every character is one byte
+        int numBytes = plainText.length();
+        int numStates = numBytes/16 + ((numBytes % 16 == 0)? 0: 1);
+        int[][][] byteMatrix = new int[numStates][4][4];
+
+        int plainTextIndex = 0;
+        for (int stateIndex = 0; stateIndex < numStates; stateIndex++) {
+            for (int row = 0; row < 4; row++) {
+                for (int col = 0; col < 4; col++) {
+                    if (plainTextIndex == numBytes) {
+                        return byteMatrix;
+                    } else {
+                        byteMatrix[stateIndex][row][col] = plainText.charAt(plainTextIndex);
+                        plainTextIndex++;
+                    }
+                }
+            }
+        }
+        return byteMatrix;
+    }
+
+    private void printByteMatrix(int[][][] byteMatrix) {
+        for (int stateIndex = 0; stateIndex < byteMatrix.length; stateIndex++) {
+            System.out.println("\nState " + stateIndex + ":");
+            for (int row = 0; row < 4; row++) {
+                for (int col = 0; col < 4; col++) {
+                    System.out.print(" " + Integer.toString(byteMatrix[stateIndex][row][col], 16));
+                }
+                System.out.println();
+            }
+        }
+    }
+    @Override
+    public String encrypt(String plainText) {
+
+        int[][][] byteMatrix = convertToBytes(plainText);
+        printByteMatrix(byteMatrix);
+        // Substitute Bytes
+        // Shift Rows
+        // Mix Columns
+        // Add round key
         return "lemon";
     }
 
