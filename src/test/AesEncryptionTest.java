@@ -66,17 +66,82 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestEncryptPadding() {
+    public void TestValidEncryptPadding() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.encrypt("Two One Nine Twoo");
         assertEquals("29c3505f571420f6402299b31a02d73a5ce64f585e7acac4767fdfe0480d3115", result);
     }
 
     @Test
-    public void TestDecryptPadding() {
+    public void TestInvalidDecryptPadding() {
+
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
-        String result = aes.decrypt("29c3505f571420f6402299b31a02d73ac8b403a525da9f28f9ca9bcee9480428");
+        try {
+            aes.decrypt("29c3505f571420f6402299b31a02d73ab3e46f11ba8d2b97c18769449a89e86c");
+        } catch (InvalidParameterException e) {
+            assertEquals("Invalid Decrypt Padding", e.getMessage());
+        }
+        try {
+            aes.decrypt("29c3505f571420f6402299b31a02d73ab3e46f11ba8d2b97c18769449a89e86a");
+        } catch (InvalidParameterException e) {
+            assertEquals("Invalid Decrypt Padding", e.getMessage());
+        }
+    }
+
+    @Test
+    public void TestValidDecryptPadding() {
+        AesEncryption aes = new AesEncryption("Thats my Kung Fu");
+        String result = aes.decrypt("29c3505f571420f6402299b31a02d73a5ce64f585e7acac4767fdfe0480d3115");
         assertEquals("Two One Nine Twoo", result);
+    }
+
+    @Test
+    public void TestEncryptInitializationPlainText() {
+        AesEncryption aes = new AesEncryption("Thats my Kung Fu");
+        String result = aes.encrypt("Two One Nine Twoo", "0000000000000000");
+        assertEquals("4129e0ba5c0278413b95c176d047e043491bfcf546cf6193375e8f5f6f50082c", result);
+    }
+
+    @Test
+    public void TestEncryptInitializationHexTex() {
+        AesEncryption aes = new AesEncryption("Thats my Kung Fu");
+        String result = aes.encrypt("Two One Nine Twoo", "30303030303030303030303030303030");
+        assertEquals("4129e0ba5c0278413b95c176d047e043491bfcf546cf6193375e8f5f6f50082c", result);
+    }
+
+    @Test
+    public void TestInvalidInitialization() {
+        AesEncryption aes = new AesEncryption("Thats my Kung Fu");
+        try {
+            aes.encrypt("Two One Nine Two", "0");
+        } catch (InvalidParameterException e) {
+            assertEquals("Invalid initializationVector", e.getMessage());
+        }
+    }
+
+    @Test
+    public void TestDecryptInitialization() {
+        AesEncryption aes = new AesEncryption("Thats my Kung Fu");
+        String cypherText = aes.decrypt("4129e0ba5c0278413b95c176d047e043491bfcf546cf6193375e8f5f6f50082c", "0000000000000000");
+        assertEquals("Two One Nine Twoo", cypherText);
+
+
+    }
+
+    @Test
+    public void InvalidDecryptMessage() {
+        AesEncryption aes = new AesEncryption("Thats my Kung Fu");
+        try {
+            aes.decrypt("0123456789");
+        } catch (InvalidParameterException e) {
+            assertEquals("Invalid Decrypt Text", e.getMessage());
+        }
+
+        try {
+            aes.decrypt("0123456789abcdeg");
+        } catch (InvalidParameterException e) {
+            assertEquals("Invalid Decrypt Text", e.getMessage());
+        }
     }
 
     @Test

@@ -1,4 +1,4 @@
-# encryption
+# Encryption
 
 This project implements several encryption algorithms encrypt and decrypt in Java.
 
