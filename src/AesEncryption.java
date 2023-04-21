@@ -2,28 +2,32 @@ import java.util.Random;
 
 public class AesEncryption implements Encryption{
 
-    private final int[] sbox;
+    private int[] sBox;
+    private int[] invSBox;
     private final String encryptionKey;
-    private int[] encryptionKeyInBytes;
     private static final int[][] CONSTANT_MATRIX = new int[][]{
             {2, 3, 1, 1},
             {1, 2, 3, 1},
             {1, 1, 2, 3},
             {3, 1, 1, 2}
     };
+    private static final int[][] INV_CONSTANT_MATRIX = new int[][]{
+            {0xE, 0xB, 0xD, 0x9},
+            {0x9, 0xE, 0xB, 0xD},
+            {0xD, 0x9, 0xE, 0xB},
+            {0xB, 0xD, 0x9, 0xE}
+    };
     private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private int[] rc;
+    private final int numRounds;
+    private final int numWords;
+    private final int n;
 
-    /* First Index is the roundNumber 0 -> 10, 12, 14
-     * Second Index is the wordNumber 0 -> 3
-     * Third Index is the byteNumber  0 -> 3
+
+    /* First Index is the wordNumber 0 -> 44, 52, 60
+     * Second Index is the byteNumber  0 -> 3
      */
-    private int[][][] roundKeys;
-    public static void main (String[] args) {
-        AesEncryption x = new AesEncryption("Thats my Kung Fu", 128);
-        System.out.println(x.encrypt("Two One Nine Two"));
-
-    }
+    private int[][] roundKeys;
 
     private int multiplyGF(int num1, int num2) {
 
@@ -71,8 +75,9 @@ public class AesEncryption implements Encryption{
         return -1;
     }
 
-    public int[] calculateRijndaelSBox() {
-        int[] sbox = new int[256];
+    public void calculateRijndaelSBox() {
+        int[] sBox = new int[256];
+        int[] invSBox = new int[256];
 
         for (int i = 0; i < 256; i++) {
             int s = getGFInverse(i);
@@ -85,9 +90,12 @@ public class AesEncryption implements Encryption{
                 x = s ^ x;
 
             }
-            sbox[i] = x ^ 99;
+            int value = x ^ 99;
+            sBox[i] = value;
+            invSBox[value] = i;
         }
-        return sbox;
+        this.invSBox = invSBox;
+        this.sBox = sBox;
     }
 
     private static String generateRandomKey() {
@@ -101,7 +109,7 @@ public class AesEncryption implements Encryption{
         return key.toString();
     }
 
-    // Operation XOR on two words and returning the result
+    // Operation XOR on two words and returns the result
     private int[] xorWords(int[] word1, int[] word2) {
         int[] result = new int[4];
         for (int i = 0; i < 4; i++) {
@@ -110,65 +118,59 @@ public class AesEncryption implements Encryption{
         return result;
     }
 
-    private int[][] generateNextRound(int[][] round, int roundNumber) {
-        int[][] nextRound = new int[4][4];
-        int[] g = new int[4];
-        System.arraycopy(round[3], 0, g, 0, 4);
-        circularLeftShift1(g);
-        substituteRow(g);
-        g[0] ^= rc[roundNumber];
-        nextRound[0] = xorWords(round[0], g);
-
-        for (int i = 1; i < 4; i++) {
-            nextRound[i] = xorWords(round[i], nextRound[i - 1]);
+    private int[] generateNextWord(int wordNumber) {
+        int[] g;
+        if (wordNumber % n == 0) {
+            g = new int[4];
+            System.arraycopy(roundKeys[wordNumber - 1], 0, g, 0, 4);
+            circularLeftShift1(g);
+            substituteRow(g, sBox);
+            g[0] ^= rc[wordNumber/n];
+        } else if (n == 8 && wordNumber % 8 == 4) {
+            g = new int[4];
+            System.arraycopy(roundKeys[wordNumber - 1], 0, g, 0, 4);
+            substituteRow(g, sBox);
+        } else {
+            g = roundKeys[wordNumber - 1];
         }
 
-        return nextRound;
+        return xorWords(roundKeys[wordNumber - n], g);
     }
 
-    private void generateRoundKey(int numRounds) {
+    private void generateRoundKey() {
+
+        roundKeys = new int[numWords][4];
+        int numKeyBytes = n * 4;
+
+        // First round
+        if (encryptionKey.length() == numKeyBytes) {
+            for (int index = 0; index < numKeyBytes; index++)
+                roundKeys[index / 4][index % 4] = encryptionKey.charAt(index);
+        } else if (encryptionKey.length() == numKeyBytes * 2) {
+            for (int index = 0; index < numKeyBytes; index++)
+                roundKeys[index / 4][index % 4] = (Character.digit(encryptionKey.charAt(index * 2), 16) << 4) +
+                        Character.digit(encryptionKey.charAt(index * 2 + 1), 16);
+        } else {
+            throw new RuntimeException("Invalid Key Length");
+        }
+
         // Generate RC values
         rc = new int[numRounds + 1];
         rc[1] = 1;
-        for(int i = 2; i <= numRounds; i++) {
-            rc[i] = multiplyGF(2, rc[i-1]);
+        for(int i = 2; i <= numRounds; i++)
+            rc[i] = multiplyGF(2, rc[ i - 1]);
 
-        }
-
-        roundKeys = new int[numRounds + 1][4][4];
-        encryptionKeyInBytes = new int[16];
-
-        // First round
-        for (int index = 0; index < 16; index++) {
-            int value = encryptionKey.charAt(index);
-            roundKeys[0][index/4][index % 4] = value;
-            encryptionKeyInBytes[index] = value;
-        }
-
-        // Rest of the rounds
-        for(int index = 1; index <= numRounds; index++) {
-            roundKeys[index] = generateNextRound(roundKeys[index - 1], index);
-        }
-
-        // For some reason, states are represent in the Matrix transform, where each word is a column, so we are going to get the transpose each round key
-
-        for(int roundIndex = 0; roundIndex <= numRounds; roundIndex++) {
-            for (int row = 0; row < 4; row++) {
-                for (int col = row + 1; col < 4; col++){
-                    int temp = roundKeys[roundIndex][row][col];
-                    roundKeys[roundIndex][row][col] = roundKeys[roundIndex][col][row];
-                    roundKeys[roundIndex][col][row] = temp;
-                }
-            }
+        // Generate words for the rest of the rounds
+        for(int index = n; index < numWords; index++) {
+            roundKeys[index] = generateNextWord(index);
         }
     }
 
     /* Converts plainText into its byte equivalent so that we can work with it.
      * The first index points to the 4x4 state matrix of portion of plainText we are looking at.
      * The second and third index denote to the byte in 4x4 state matrix
-
      */
-    private int[][][] convertToByteMatrices(String plainText) {
+    private int[][][] convertPlainTextToByteMatrices(String plainText) {
 
         //Every character is one byte
         int numBytes = plainText.length();
@@ -191,19 +193,35 @@ public class AesEncryption implements Encryption{
         return byteMatrices;
     }
 
-    // Substitute Bytes with sbox in-place for a row
-    private void substituteRow(int[] row) {
-        for (int col =0; col < 4; col++) {
-            row[col] = sbox[row[col]];
+    private String convertByteMatricesToPlainText(int[][][] byteMatrices) {
+
+        StringBuilder plainText = new StringBuilder();
+        for (int[][] byteMatrix : byteMatrices) {
+            for (int col = 0; col < 4; col++) {
+                for (int row = 0; row < 4; row++) {
+                    if (byteMatrix[row][col] == 0) {
+                        return plainText.toString();
+                    } else {
+                        plainText.append((char) byteMatrix[row][col]);
+                    }
+                }
+            }
         }
-    }
-    // Substitute Bytes with the sbox in-place for a state
-    private void substituteBytes(int[][] state) {
-        for (int row = 0; row < 4; row++) {
-            substituteRow(state[row]);
-        }
+        return plainText.toString();
     }
 
+    // Substitute Bytes with sBox in-place for a row
+    private void substituteRow(int[] row, int[] sBox) {
+        for (int col = 0; col < 4; col++) {
+            row[col] = sBox[row[col]];
+        }
+    }
+    // Substitute Bytes with the sBox in-place for a state
+    private void substituteBytes(int[][] state, int[] sBox) {
+        for (int row = 0; row < 4; row++) {
+            substituteRow(state[row], sBox);
+        }
+    }
     private void circularLeftShift1 (int[] row) {
         int temp = row[0];
         for (int col = 1; col < 4; col++) {
@@ -235,10 +253,16 @@ public class AesEncryption implements Encryption{
         circularLeftShift3(state[3]);
     }
 
+    private void invShiftRow(int[][] state) {
+        circularLeftShift3(state[1]);
+        circularLeftShift2(state[2]);
+        circularLeftShift1(state[3]);
+    }
+
     // Mix Columns
-    private void mixColumns(int[][] state) {
+    private void mixColumns(int[][] state, final int[][] matrix) {
         int[][] newState = new int[4][4];
-        for (int row = 0; row < 4; row++) {
+        for (int row = 0; row < 4; row++)
             for (int col = 0; col < 4; col++) {
 
                 /* Calculate the value at [row][col].
@@ -246,30 +270,52 @@ public class AesEncryption implements Encryption{
                  * Col refers to which col in the state
                  * */
                 for (int otherIndex = 0; otherIndex < 4; otherIndex++) {
-                    newState[row][col] ^= multiplyGF(CONSTANT_MATRIX[row][otherIndex], state[otherIndex][col]);
+                    newState[row][col] ^= multiplyGF(matrix[row][otherIndex], state[otherIndex][col]);
                 }
             }
-        }
         // Copy the row over to the old matrix
-        for (int row = 0; row < 4; row++)
-            state[row] = newState[row];
+        System.arraycopy(newState, 0, state, 0, 4);
     }
 
     private void addRoundKey(int[][] state, int roundNumber) {
-        int[][] round = roundKeys[roundNumber];
+        int wordIncrement = roundNumber * 4;
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 4; col++) {
-                state[row][col] ^= round[row][col];
+                state[row][col] ^= roundKeys[col + wordIncrement][row];
             }
         }
     }
 
-    private String convertToHexText(int[][][] byteMatrices) {
-        StringBuilder text = new StringBuilder();
-        for (int stateIndex = 0; stateIndex < byteMatrices.length; stateIndex++)
+    private int[][][] convertHexTextToMatrix(String hexText){
+        //Every 2 characters is one byte
+        int numBytes = hexText.length()/2;
+        int numStates = numBytes/16 + ((numBytes % 16 == 0)? 0: 1);
+        int[][][] byteMatrices = new int[numStates][4][4];
+
+        int hexTextIndex = 0;
+        for (int stateIndex = 0; stateIndex < numStates; stateIndex++) {
             for (int col = 0; col < 4; col++) {
                 for (int row = 0; row < 4; row++) {
-                    text.append(Integer.toString(byteMatrices[stateIndex][row][col],16));
+                    if (hexTextIndex == hexText.length()) {
+                        return byteMatrices;
+                    } else {
+                        byteMatrices[stateIndex][row][col] = (Character.digit(hexText.charAt(hexTextIndex),16) << 4) +
+                                Character.digit(hexText.charAt(++hexTextIndex), 16);
+                        hexTextIndex++;
+                    }
+                }
+            }
+        }
+        return byteMatrices;
+    }
+
+    private String convertMatrixToHexText(int[][][] byteMatrices) {
+        StringBuilder text = new StringBuilder();
+        for (int[][] byteMatrix : byteMatrices)
+            for (int col = 0; col < 4; col++) {
+                for (int row = 0; row < 4; row++) {
+                    if (byteMatrix[row][col] < 0x10) text.append('0');
+                    text.append(Integer.toString(byteMatrix[row][col], 16));
                 }
             }
 
@@ -290,63 +336,72 @@ public class AesEncryption implements Encryption{
     }
 
     public AesEncryption(String encryptionKey, int bits) {
-        System.out.println(encryptionKey);
-        if (encryptionKey.length() != 16 || !(bits == 128 || bits == 192 || bits == 256)) {
-            throw new RuntimeException();
-        }
+
         this.encryptionKey = encryptionKey;
+        calculateRijndaelSBox();
 
-        sbox = calculateRijndaelSBox();
-        if (bits == 128)
-            generateRoundKey(10);
-        else if (bits == 192)
-            generateRoundKey(12);
-        else
-            generateRoundKey(14);
+        if (bits == 128) {
+            n = 4; // Key but be length 16 or 32
+        } else if (bits == 192) {
+            n = 6; // Key length 24 or 48
+        } else if (bits == 256) {
+            n = 8; // Key length 32 or 64
+        } else
+            throw new RuntimeException("Invalid Bit Size");
+
+        numRounds = n + 6;
+        numWords = (numRounds + 1) * 4;
+        generateRoundKey();
     }
 
-    public String getStringKey() {
+    public String getKey() {
         return encryptionKey;
-    }
-
-    public String getHexKey() {
-        StringBuilder hexKey = new StringBuilder();
-        for (int i = 0; i < 16; i++){
-            hexKey.append(Integer.toString(encryptionKeyInBytes[i],16));
-        }
-        return hexKey.toString();
     }
 
     @Override
     public String encrypt(String plainText) {
 
-        int[][][] byteMatrices = convertToByteMatrices(plainText);
+        int[][][] byteMatrices = convertPlainTextToByteMatrices(plainText);
 
         for (int[][] byteMatrix : byteMatrices) {
             addRoundKey(byteMatrix, 0);
 
             for (int roundNumber = 1; roundNumber < rc.length - 1; roundNumber++) {
-                // Substitute Bytes
-                substituteBytes(byteMatrix);
+                substituteBytes(byteMatrix, sBox);
                 shiftRow(byteMatrix);
-                mixColumns(byteMatrix);
+                mixColumns(byteMatrix, CONSTANT_MATRIX);
                 addRoundKey(byteMatrix, roundNumber);
             }
 
-            substituteBytes(byteMatrix);
+            substituteBytes(byteMatrix, sBox);
             shiftRow(byteMatrix);
             addRoundKey(byteMatrix, rc.length - 1);
         }
 
-        return convertToHexText(byteMatrices);
+        return convertMatrixToHexText(byteMatrices);
     }
 
     @Override
     public String decrypt(String message) {
-        return null;
+        int[][][] byteMatrices = convertHexTextToMatrix(message);
+
+        for (int[][] byteMatrix: byteMatrices) {
+            addRoundKey(byteMatrix, rc.length - 1);
+            invShiftRow(byteMatrix);
+            substituteBytes(byteMatrix, invSBox);
+
+            for (int roundNumber = rc.length - 2; roundNumber > 0; roundNumber--) {
+                addRoundKey(byteMatrix, roundNumber);
+                mixColumns(byteMatrix, INV_CONSTANT_MATRIX);
+                invShiftRow(byteMatrix);
+                substituteBytes(byteMatrix, invSBox);
+            }
+            addRoundKey(byteMatrix, 0);
+        }
+        return convertByteMatricesToPlainText(byteMatrices);
     }
 
-    // The following is used mainly for debugging purposes
+    // The following functions are used mainly for debugging purposes
     private void printWord(int[] word) {
         for (int col = 0; col < 4; col++) {
             System.out.print(" " + Integer.toString(word[col], 16));
@@ -362,6 +417,16 @@ public class AesEncryption implements Encryption{
         for (int stateIndex = 0; stateIndex < byteMatrices.length; stateIndex++) {
             System.out.println("\nState " + stateIndex + ":");
             printState(byteMatrices[stateIndex]);
+        }
+    }
+
+    private void printRoundKeys() {
+        System.out.println("Round Key: ");
+        for (int i = 0; i < roundKeys.length; i++) {
+            for (int j = 0; j < roundKeys[0].length; j++) {
+                System.out.print(Integer.toString(roundKeys[i][j], 16) + " ");
+            }
+            System.out.println();
         }
     }
 }
