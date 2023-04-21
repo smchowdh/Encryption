@@ -1,10 +1,14 @@
+package encryption;
+
+import java.security.InvalidParameterException;
+import java.util.Objects;
 import java.util.Random;
 
-public class AesEncryption implements Encryption{
+public class AesEncryption implements Encryption {
 
+    private int[] rc;
     private int[] sBox;
     private int[] invSBox;
-    private final String encryptionKey;
     private static final int[][] CONSTANT_MATRIX = new int[][]{
             {2, 3, 1, 1},
             {1, 2, 3, 1},
@@ -17,12 +21,12 @@ public class AesEncryption implements Encryption{
             {0xD, 0x9, 0xE, 0xB},
             {0xB, 0xD, 0x9, 0xE}
     };
-    private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private int[] rc;
+    private static final String ALPHABET = "abcdef0123456789";
+
+    private final String encryptionKey;
     private final int numRounds;
     private final int numWords;
     private final int n;
-
 
     /* First Index is the wordNumber 0 -> 44, 52, 60
      * Second Index is the byteNumber  0 -> 3
@@ -64,15 +68,18 @@ public class AesEncryption implements Encryption{
         }
         return result;
     }
+
+    //Brute force obtains the inverse
     private int getGFInverse(int x) {
         if (x == 0)
             return 0;
 
-        for (int i = 1; i < 256; i++)
+        for (int i = 1; i < 255; i++)
             if (multiplyGF(x, i) == 1)
                 return i;
 
-        return -1;
+        // It is guaranteed that an inverse exists so if 0 - 254 is checked, then it must be 255
+        return 255;
     }
 
     public void calculateRijndaelSBox() {
@@ -98,11 +105,11 @@ public class AesEncryption implements Encryption{
         this.sBox = sBox;
     }
 
-    private static String generateRandomKey() {
+    private String generateRandomKey() {
         StringBuilder key = new StringBuilder();
         Random random = new Random();
 
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < n * 8; i++) {
             int index = random.nextInt(ALPHABET.length());
             key.append(ALPHABET.charAt(index));
         }
@@ -144,14 +151,16 @@ public class AesEncryption implements Encryption{
 
         // First round
         if (encryptionKey.length() == numKeyBytes) {
-            for (int index = 0; index < numKeyBytes; index++)
+            for (int index = 0; index < numKeyBytes; index++) {
                 roundKeys[index / 4][index % 4] = encryptionKey.charAt(index);
+            }
         } else if (encryptionKey.length() == numKeyBytes * 2) {
-            for (int index = 0; index < numKeyBytes; index++)
+            for (int index = 0; index < numKeyBytes; index++) {
                 roundKeys[index / 4][index % 4] = (Character.digit(encryptionKey.charAt(index * 2), 16) << 4) +
                         Character.digit(encryptionKey.charAt(index * 2 + 1), 16);
+            }
         } else {
-            throw new RuntimeException("Invalid Key Length");
+            throw new InvalidParameterException("Invalid Key Length");
         }
 
         // Generate RC values
@@ -174,19 +183,50 @@ public class AesEncryption implements Encryption{
 
         //Every character is one byte
         int numBytes = plainText.length();
-        int numStates = numBytes/16 + ((numBytes % 16 == 0)? 0: 1);
+        int numStates = numBytes/16 + 1;
+        int padding = numStates * 16 - numBytes;
+        int startPaddingIndex = 16 - padding;
+        int[][][] byteMatrices = new int[numStates][4][4];
+        int lastStateIndex = numStates - 1;
+        int[][] lastState = byteMatrices[lastStateIndex];
+        int plainTextIndex = 0;
+
+        for (int stateIndex = 0; stateIndex < lastStateIndex; stateIndex++) {
+            for (int col = 0; col < 4; col++) {
+                for (int row = 0; row < 4; row++) {
+                    byteMatrices[stateIndex][row][col] = plainText.charAt(plainTextIndex);
+                    plainTextIndex++;
+
+                }
+            }
+        }
+
+        for (int index = 0; index < startPaddingIndex; index++) {
+            lastState[index % 4][index / 4] = plainText.charAt(plainTextIndex);
+            plainTextIndex++;
+        }
+
+        for (int index = startPaddingIndex; index < 16; index++) {
+            lastState[index % 4][index / 4] = padding;
+        }
+        return byteMatrices;
+    }
+
+    private int[][][] convertHexTextToMatrix(String hexText) {
+
+        //Every 2 characters is one byte
+        int numBytes = hexText.length()/2;
+        int numStates = numBytes/16;
         int[][][] byteMatrices = new int[numStates][4][4];
 
-        int plainTextIndex = 0;
+        int hexTextIndex = 0;
         for (int stateIndex = 0; stateIndex < numStates; stateIndex++) {
             for (int col = 0; col < 4; col++) {
                 for (int row = 0; row < 4; row++) {
-                    if (plainTextIndex == numBytes) {
-                        return byteMatrices;
-                    } else {
-                        byteMatrices[stateIndex][row][col] = plainText.charAt(plainTextIndex);
-                        plainTextIndex++;
-                    }
+                    byteMatrices[stateIndex][row][col] = (Character.digit(hexText.charAt(hexTextIndex),16) << 4) +
+                            Character.digit(hexText.charAt(++hexTextIndex), 16);
+                    hexTextIndex++;
+
                 }
             }
         }
@@ -196,17 +236,23 @@ public class AesEncryption implements Encryption{
     private String convertByteMatricesToPlainText(int[][][] byteMatrices) {
 
         StringBuilder plainText = new StringBuilder();
-        for (int[][] byteMatrix : byteMatrices) {
+        int lastMatrixIndex = byteMatrices.length - 1;
+        for (int stateIndex = 0; stateIndex < lastMatrixIndex; stateIndex++) {
             for (int col = 0; col < 4; col++) {
                 for (int row = 0; row < 4; row++) {
-                    if (byteMatrix[row][col] == 0) {
-                        return plainText.toString();
-                    } else {
-                        plainText.append((char) byteMatrix[row][col]);
-                    }
+                    plainText.append((char) byteMatrices[stateIndex][row][col]);
                 }
             }
         }
+
+        int[][] lastMatrix = byteMatrices[lastMatrixIndex];
+        int padding = lastMatrix[3][3];
+        int startPaddingIndex = 16 - padding;
+
+        for (int i = 0; i < startPaddingIndex; i++) {
+            plainText.append((char) lastMatrix[i % 4][i / 4]);
+        }
+
         return plainText.toString();
     }
 
@@ -216,12 +262,14 @@ public class AesEncryption implements Encryption{
             row[col] = sBox[row[col]];
         }
     }
+
     // Substitute Bytes with the sBox in-place for a state
     private void substituteBytes(int[][] state, int[] sBox) {
         for (int row = 0; row < 4; row++) {
             substituteRow(state[row], sBox);
         }
     }
+
     private void circularLeftShift1 (int[] row) {
         int temp = row[0];
         for (int col = 1; col < 4; col++) {
@@ -286,28 +334,7 @@ public class AesEncryption implements Encryption{
         }
     }
 
-    private int[][][] convertHexTextToMatrix(String hexText){
-        //Every 2 characters is one byte
-        int numBytes = hexText.length()/2;
-        int numStates = numBytes/16 + ((numBytes % 16 == 0)? 0: 1);
-        int[][][] byteMatrices = new int[numStates][4][4];
 
-        int hexTextIndex = 0;
-        for (int stateIndex = 0; stateIndex < numStates; stateIndex++) {
-            for (int col = 0; col < 4; col++) {
-                for (int row = 0; row < 4; row++) {
-                    if (hexTextIndex == hexText.length()) {
-                        return byteMatrices;
-                    } else {
-                        byteMatrices[stateIndex][row][col] = (Character.digit(hexText.charAt(hexTextIndex),16) << 4) +
-                                Character.digit(hexText.charAt(++hexTextIndex), 16);
-                        hexTextIndex++;
-                    }
-                }
-            }
-        }
-        return byteMatrices;
-    }
 
     private String convertMatrixToHexText(int[][][] byteMatrices) {
         StringBuilder text = new StringBuilder();
@@ -322,33 +349,32 @@ public class AesEncryption implements Encryption{
         return text.toString();
     }
 
-    // Default constructors implies random key string and AES-256
+    // Default constructors implies random key string and AES-128
     public AesEncryption() {
-        this(generateRandomKey(), 256);
+        this(null, 128);
     }
 
     public AesEncryption(String encryptionKey) {
-        this(encryptionKey, 256);
+        this(encryptionKey, 128);
     }
 
     public AesEncryption(int bits) {
-        this(generateRandomKey(), bits);
+        this(null, bits);
     }
 
     public AesEncryption(String encryptionKey, int bits) {
 
-        this.encryptionKey = encryptionKey;
+
+        n = switch (bits) {
+            case 128 -> 4;
+            case 192 -> 6;
+            case 256 -> 8;
+            default -> throw new InvalidParameterException("Invalid Bit Size");
+        };
+
+        this.encryptionKey = Objects.requireNonNullElseGet(encryptionKey, this::generateRandomKey);
+
         calculateRijndaelSBox();
-
-        if (bits == 128) {
-            n = 4; // Key but be length 16 or 32
-        } else if (bits == 192) {
-            n = 6; // Key length 24 or 48
-        } else if (bits == 256) {
-            n = 8; // Key length 32 or 64
-        } else
-            throw new RuntimeException("Invalid Bit Size");
-
         numRounds = n + 6;
         numWords = (numRounds + 1) * 4;
         generateRoundKey();
@@ -407,12 +433,14 @@ public class AesEncryption implements Encryption{
             System.out.print(" " + Integer.toString(word[col], 16));
         }
     }
+
     private void printState(int[][] state) {
         for (int row = 0; row < 4; row++) {
             printWord(state[row]);
             System.out.println();
         }
     }
+
     private void printByteMatrices(int[][][] byteMatrices) {
         for (int stateIndex = 0; stateIndex < byteMatrices.length; stateIndex++) {
             System.out.println("\nState " + stateIndex + ":");
