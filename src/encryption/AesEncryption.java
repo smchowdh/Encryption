@@ -1,6 +1,5 @@
 package encryption;
 
-import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
@@ -73,6 +72,7 @@ public class AesEncryption implements Encryption {
 
     //Brute force obtains the inverse
     private int getGFInverse(int x) {
+
         if (x == 0)
             return 0;
 
@@ -84,7 +84,8 @@ public class AesEncryption implements Encryption {
         return 255;
     }
 
-    public void calculateRijndaelSBox() {
+    private void calculateRijndaelSBox() {
+
         int[] sBox = new int[256];
         int[] invSBox = new int[256];
 
@@ -108,6 +109,7 @@ public class AesEncryption implements Encryption {
     }
 
     private String generateRandomKey() {
+
         StringBuilder key = new StringBuilder();
         Random random = new Random();
 
@@ -135,6 +137,7 @@ public class AesEncryption implements Encryption {
     }
 
     private int[] generateNextWord(int wordNumber) {
+
         int[] g;
         if (wordNumber % n == 0) {
             g = new int[4];
@@ -163,13 +166,13 @@ public class AesEncryption implements Encryption {
             for (int index = 0; index < numKeyBytes; index++) {
                 roundKeys[index / 4][index % 4] = encryptionKey.charAt(index);
             }
-        } else if (encryptionKey.length() == numKeyBytes * 2) {
+        } else if (encryptionKey.length() == numKeyBytes * 2 && Pattern.matches("^[0-9a-f]+$", encryptionKey)) {
             for (int index = 0; index < numKeyBytes; index++) {
                 roundKeys[index / 4][index % 4] = (Character.digit(encryptionKey.charAt(index * 2), 16) << 4) +
                         Character.digit(encryptionKey.charAt(index * 2 + 1), 16);
             }
         } else {
-            throw new InvalidParameterException("Invalid Key Length");
+            throw new IllegalArgumentException("Invalid Key");
         }
 
         // Generate RC values
@@ -201,7 +204,7 @@ public class AesEncryption implements Encryption {
      */
     private int[][][] convertPlainTextToByteMatrices(String plainText) {
 
-        //Every character is one byte
+        // Every character is one byte
         int numBytes = plainText.length();
         int numStates = numBytes/16 + 1;
         int padding = numStates * 16 - numBytes;
@@ -241,10 +244,10 @@ public class AesEncryption implements Encryption {
     private int[][][] convertHexTextToMatrices(String hexText) {
 
         if (hexText.length() % 32 != 0 || !Pattern.matches("^[0-9a-f]+$", hexText)) {
-            throw new InvalidParameterException("Invalid Decrypt Text");
+            throw new IllegalArgumentException("Invalid Decrypt Text");
         }
 
-        //Every 2 characters is one byte
+        // Every 2 characters is one byte
         int numBytes = hexText.length()/2;
         int numStates = numBytes/16;
         int[][][] byteMatrices = new int[numStates][4][4];
@@ -273,13 +276,13 @@ public class AesEncryption implements Encryption {
         int padding = lastMatrix[3][3];
 
         if (padding > 0x10) {
-            throw new InvalidParameterException("Invalid Decrypt Padding");
+            throw new IllegalArgumentException("Invalid Decrypt Padding");
         }
         int startPaddingIndex = 16 - padding;
 
         for (int i = startPaddingIndex; i < 16; i++) {
             if (lastMatrix[i % 4][i / 4] != padding) {
-                throw new InvalidParameterException("Invalid Decrypt Padding");
+                throw new IllegalArgumentException("Invalid Decrypt Padding");
             }
         }
 
@@ -295,7 +298,7 @@ public class AesEncryption implements Encryption {
         if (initializationVector.length() == 32 && Pattern.matches("^[0-9a-f]+$",initializationVector)) {
             return convertHexTextToMatrix(initializationVector, 0);
         } else if (initializationVector.length() != 16) {
-            throw new InvalidParameterException("Invalid initializationVector");
+            throw new IllegalArgumentException("Invalid initializationVector");
         } else {
             return convertPlainTextToByteMatrix(initializationVector, 0);
         }
@@ -355,7 +358,6 @@ public class AesEncryption implements Encryption {
 
     // Mix Columns
     private void mixColumns(int[][] state, final int[][] matrix) {
-
         int[][] newState = new int[4][4];
         for (int row = 0; row < 4; row++)
             for (int col = 0; col < 4; col++) {
@@ -395,6 +397,7 @@ public class AesEncryption implements Encryption {
     }
 
     private void encryptBlock(int[][] byteMatrix) {
+
         addRoundKey(byteMatrix, 0);
 
         for (int roundNumber = 1; roundNumber < rc.length - 1; roundNumber++) {
@@ -410,6 +413,7 @@ public class AesEncryption implements Encryption {
     }
 
     private void decryptBlock(int[][] byteMatrix) {
+
         addRoundKey(byteMatrix, rc.length - 1);
         invShiftRow(byteMatrix);
         substituteBytes(byteMatrix, invSBox);
@@ -442,7 +446,7 @@ public class AesEncryption implements Encryption {
             case 128 -> 4;
             case 192 -> 6;
             case 256 -> 8;
-            default -> throw new InvalidParameterException("Invalid Bit Size");
+            default -> throw new IllegalArgumentException("Invalid Bit Size");
         };
         this.encryptionKey = Objects.requireNonNullElseGet(encryptionKey, this::generateRandomKey);
 
@@ -457,7 +461,7 @@ public class AesEncryption implements Encryption {
         return encryptionKey;
     }
 
-    // ECB
+    // Encrypt in ECB
     @Override
     public String encrypt(String plainText) {
 
@@ -470,7 +474,7 @@ public class AesEncryption implements Encryption {
         return convertMatrixToHexText(byteMatrices);
     }
 
-    // CBC
+    // Encrypt in CBC
     public String encrypt(String plainText, String initializationVector) {
 
         int[][][] byteMatrices = convertPlainTextToByteMatrices(plainText);
@@ -488,16 +492,16 @@ public class AesEncryption implements Encryption {
 
     // Decrypt in EBC
     @Override
-    public String decrypt(String text) {
-        int[][][] byteMatrices = convertHexTextToMatrices(text);
+    public String decrypt(String cypherText) {
+        int[][][] byteMatrices = convertHexTextToMatrices(cypherText);
         Arrays.stream(byteMatrices).forEach(byteMatrix -> decryptBlock(byteMatrix));
         return convertByteMatricesToPlainText(byteMatrices);
     }
 
     // Decrypt in CBC
-    public String decrypt(String text, String initializationVector) {
+    public String decrypt(String cypherText, String initializationVector) {
 
-        int[][][] byteMatrices = convertHexTextToMatrices(text);
+        int[][][] byteMatrices = convertHexTextToMatrices(cypherText);
 
         for (int stateIndex = byteMatrices.length - 1; stateIndex > 0;) {
             int[][] byteMatrix = byteMatrices[stateIndex];

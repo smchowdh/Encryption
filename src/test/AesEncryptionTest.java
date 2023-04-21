@@ -3,7 +3,6 @@ package test;
 import encryption.AesEncryption;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import java.security.InvalidParameterException;
 import java.util.regex.Pattern;
 
 // Specific test data was found from: https://www.devglan.com/online-tools/aes-encryption-decryption
@@ -37,17 +36,23 @@ public class AesEncryptionTest {
     public void TestInvalidBitsConstructor() {
         try {
             new AesEncryption(0);
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             assertEquals("Invalid Bit Size", e.getMessage());
         }
     }
 
     @Test
-    public void TestInvalidKeyLengthConstructor() {
+    public void TestInvalidKeyConstructor() {
         try {
             new AesEncryption("1234");
-        } catch (InvalidParameterException e) {
-            assertEquals("Invalid Key Length", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            assertEquals("Invalid Key", e.getMessage());
+        }
+
+        try {
+            new AesEncryption("0123456789abcdeg");
+        } catch (IllegalArgumentException e) {
+            assertEquals("Invalid Key", e.getMessage());
         }
     }
 
@@ -78,12 +83,12 @@ public class AesEncryptionTest {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         try {
             aes.decrypt("29c3505f571420f6402299b31a02d73ab3e46f11ba8d2b97c18769449a89e86c");
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             assertEquals("Invalid Decrypt Padding", e.getMessage());
         }
         try {
             aes.decrypt("29c3505f571420f6402299b31a02d73ab3e46f11ba8d2b97c18769449a89e86a");
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             assertEquals("Invalid Decrypt Padding", e.getMessage());
         }
     }
@@ -114,7 +119,7 @@ public class AesEncryptionTest {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         try {
             aes.encrypt("Two One Nine Two", "0");
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             assertEquals("Invalid initializationVector", e.getMessage());
         }
     }
@@ -133,13 +138,13 @@ public class AesEncryptionTest {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         try {
             aes.decrypt("0123456789");
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             assertEquals("Invalid Decrypt Text", e.getMessage());
         }
 
         try {
             aes.decrypt("0123456789abcdeg");
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             assertEquals("Invalid Decrypt Text", e.getMessage());
         }
     }
