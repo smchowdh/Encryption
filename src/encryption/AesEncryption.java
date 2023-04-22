@@ -7,9 +7,9 @@ import java.util.regex.Pattern;
 
 public class AesEncryption implements Encryption {
 
-    private int[] rc;
-    private int[] sBox;
-    private int[] invSBox;
+    private static int[] rc;
+    private static int[] sBox;
+    private static int[] invSBox;
     private static final int[][] CONSTANT_MATRIX = new int[][]{
             {2, 3, 1, 1},
             {1, 2, 3, 1},
@@ -34,7 +34,7 @@ public class AesEncryption implements Encryption {
      */
     private int[][] roundKeys;
 
-    private int multiplyGF(int num1, int num2) {
+    private static int multiplyGF(int num1, int num2) {
 
         //Multiply
         int result = 0;
@@ -71,7 +71,7 @@ public class AesEncryption implements Encryption {
     }
 
     //Brute force obtains the inverse
-    private int getGFInverse(int x) {
+    private static int getGFInverse(int x) {
 
         if (x == 0)
             return 0;
@@ -84,7 +84,7 @@ public class AesEncryption implements Encryption {
         return 255;
     }
 
-    private void calculateRijndaelSBox() {
+    private static void calculateRijndaelSBox() {
 
         int[] sBox = new int[256];
         int[] invSBox = new int[256];
@@ -104,10 +104,22 @@ public class AesEncryption implements Encryption {
             sBox[i] = value;
             invSBox[value] = i;
         }
-        this.invSBox = invSBox;
-        this.sBox = sBox;
+        AesEncryption.invSBox = invSBox;
+        AesEncryption.sBox = sBox;
+    }
+    private static void calculateRC() {
+
+        rc = new int[15];
+        rc[1] = 1;
+        for(int i = 2; i < 15; i++)
+            rc[i] = multiplyGF(2, rc[ i - 1]);
     }
 
+    static {
+        calculateRijndaelSBox();
+        calculateRC();
+    }
+    
     private String generateRandomKey() {
 
         StringBuilder key = new StringBuilder();
@@ -121,7 +133,7 @@ public class AesEncryption implements Encryption {
     }
 
     // XOR on two words and returns the result in a new Array
-    private int[] xorWords(int[] word1, int[] word2) {
+    private static int[] xorWords(int[] word1, int[] word2) {
         int[] result = new int[4];
         for (int i = 0; i < 4; i++) {
             result[i] = word1[i] ^ word2[i];
@@ -175,12 +187,6 @@ public class AesEncryption implements Encryption {
             throw new IllegalArgumentException("Invalid Key");
         }
 
-        // Generate RC values
-        rc = new int[numRounds + 1];
-        rc[1] = 1;
-        for(int i = 2; i <= numRounds; i++)
-            rc[i] = multiplyGF(2, rc[ i - 1]);
-
         // Generate words for the rest of the rounds
         for(int index = n; index < numWords; index++) {
             roundKeys[index] = generateNextWord(index);
@@ -207,11 +213,9 @@ public class AesEncryption implements Encryption {
         // Every character is one byte
         int numBytes = plainText.length();
         int numStates = numBytes/16 + 1;
-        int padding = numStates * 16 - numBytes;
-        int startPaddingIndex = 16 - padding;
+
         int[][][] byteMatrices = new int[numStates][][];
         int lastStateIndex = numStates - 1;
-        int[][] lastState = new int[4][4];
         int plainTextIndex = 0;
 
         for (int stateIndex = 0; stateIndex < lastStateIndex; stateIndex++) {
@@ -220,6 +224,9 @@ public class AesEncryption implements Encryption {
         }
 
         // Last Matrix plus padding
+        int[][] lastState = new int[4][4];
+        int padding = numStates * 16 - numBytes;
+        int startPaddingIndex = 16 - padding;
         for (int index = 0; index < startPaddingIndex; index++) {
             lastState[index % 4][index / 4] = plainText.charAt(plainTextIndex++);
         }
@@ -400,7 +407,7 @@ public class AesEncryption implements Encryption {
 
         addRoundKey(byteMatrix, 0);
 
-        for (int roundNumber = 1; roundNumber < rc.length - 1; roundNumber++) {
+        for (int roundNumber = 1; roundNumber < numRounds; roundNumber++) {
             substituteBytes(byteMatrix, sBox);
             shiftRow(byteMatrix);
             mixColumns(byteMatrix, CONSTANT_MATRIX);
@@ -409,16 +416,16 @@ public class AesEncryption implements Encryption {
 
         substituteBytes(byteMatrix, sBox);
         shiftRow(byteMatrix);
-        addRoundKey(byteMatrix, rc.length - 1);
+        addRoundKey(byteMatrix, numRounds);
     }
 
     private void decryptBlock(int[][] byteMatrix) {
 
-        addRoundKey(byteMatrix, rc.length - 1);
+        addRoundKey(byteMatrix, numRounds);
         invShiftRow(byteMatrix);
         substituteBytes(byteMatrix, invSBox);
 
-        for (int roundNumber = rc.length - 2; roundNumber > 0; roundNumber--) {
+        for (int roundNumber = numRounds - 1; roundNumber > 0; roundNumber--) {
             addRoundKey(byteMatrix, roundNumber);
             mixColumns(byteMatrix, INV_CONSTANT_MATRIX);
             invShiftRow(byteMatrix);
@@ -450,8 +457,6 @@ public class AesEncryption implements Encryption {
         };
         this.encryptionKey = Objects.requireNonNullElseGet(encryptionKey, this::generateRandomKey);
 
-
-        calculateRijndaelSBox();
         numRounds = n + 6;
         numWords = (numRounds + 1) * 4;
         generateRoundKey();
@@ -494,7 +499,7 @@ public class AesEncryption implements Encryption {
     @Override
     public String decrypt(String cypherText) {
         int[][][] byteMatrices = convertHexTextToMatrices(cypherText);
-        Arrays.stream(byteMatrices).forEach(byteMatrix -> decryptBlock(byteMatrix));
+        Arrays.stream(byteMatrices).forEach(this::decryptBlock);
         return convertByteMatricesToPlainText(byteMatrices);
     }
 
@@ -539,9 +544,9 @@ public class AesEncryption implements Encryption {
 
     private void printRoundKeys() {
         System.out.println("Round Key: ");
-        for (int i = 0; i < roundKeys.length; i++) {
+        for (int[] roundKey : roundKeys) {
             for (int j = 0; j < roundKeys[0].length; j++) {
-                System.out.print(Integer.toString(roundKeys[i][j], 16) + " ");
+                System.out.print(Integer.toString(roundKey[j], 16) + " ");
             }
             System.out.println();
         }

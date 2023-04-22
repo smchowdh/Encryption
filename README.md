@@ -5,11 +5,13 @@ This project implements several encryption algorithms encrypt and decrypt in Jav
 Eventually, I will recreate several of the encryption algorithms to run on
 and FPGA and then compare their ms.
 
-## Encryption Algorithms: 
+## Encryption Algorithms
 
 -------------------
 ## AES (Rijndael)
 ### Class AesEncryption
+
+Uses Rijndael's algorithm to encrypt and decrypt text. Can do AES-128, AES-192 or AES-256 in ECB or in CBC with an initialization vector. See how to use the class in test/AesEncryptionTest.java
 
 ### Constructors
 
@@ -55,14 +57,41 @@ and FPGA and then compare their ms.
 |--------------------------------------------------------------------------------------------------------------------------------------------|
 | Encrypts a string in ECB  <br/> ***Parameters:*** <br/> *plainText* - string to be encrypted<br/>***Returns:*** <br/> the encrypted string |
 
-| public String encrypt(String plainText, String initializationVector)                                                                                                                                                                                                                                                                                                                            |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Encrypts a string in CBC via the specified initialization vector  <br/> ***Parameters:*** <br/> *plainText* - string to be encrypted<br/> *initializationVector* - the hexadecimal or plain text initialization vector<br/> ***Throws:***<br/>*IllegalArgumentException* - if the initialization vector does not correspond to a size of 128 bits<br/>***Returns:*** <br/> the encrypted string |
+| public String encrypt(String plainText, String initializationVector)                                                                                                                                                                                                                                                                                                                        |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Encrypts a string in CBC via the specified initialization vector  <br/> ***Parameters:*** <br/> *plainText* - string to be encrypted<br/> *initializationVector* - the hexadecimal or plain text initialization vector<br/> ***Throws:***<br/>*IllegalArgumentException* - if initializationVector does not correspond to a size of 128 bits<br/> ***Returns:*** <br/> the encrypted string |
 
-| public String decrypt(String cypherText)                                                                                                    |
-|---------------------------------------------------------------------------------------------------------------------------------------------|
-| Decrypts a string in ECB  <br/> ***Parameters:*** <br/> *cypherText* - string to be decrypted<br/>***Returns:*** <br/> the decrypted string |
+| public String decrypt(String cypherText)                                                                                                                                                                                                                                   |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Decrypts a string in ECB  <br/> ***Parameters:*** <br/> *cypherText* - the hexadecimal string to be decrypted<br/>***Throws:***<br/>*IllegalArgumentException* - if cypherText is not a hexadecimal or valid encrypted text<br/> ***Returns:*** <br/> the decrypted string |
 
-| public String decrypt(String cypherText, String initializationVector)                                                                                                                                                                                                                                                                                                                            |
-|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Decrypts a string in CBC via the specified initialization vector  <br/> ***Parameters:*** <br/> *cypherText* - string to be decrypted<br/> *initializationVector* - the hexadecimal or plain text initialization vector<br/> ***Throws:***<br/>*IllegalArgumentException* - if the initialization vector does not correspond to a size of 128 bits<br/>***Returns:*** <br/> the decrypted string |
+| public String decrypt(String cypherText, String initializationVector)                                                                                                                                                                                                                                                                                                                                                                                  |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Decrypts a string in CBC via the specified initialization vector  <br/> ***Parameters:*** <br/> *cypherText* - string to be decrypted<br/> *initializationVector* - the hexadecimal or plain text initialization vector<br/> ***Throws:***<br/>*IllegalArgumentException* - if initializationVector does not correspond to a size of 128 bits or cypherText is not a hexadecimal or valid encrypted text<br/>***Returns:*** <br/> the decrypted string |
+
+### Implementation Details
+1. **Rijndael's S-Box** 
+   
+Rijndael's S-box is generated when the class is loaded. It is generated via finding the
+multiplicative inverse of each constant in GF(2). Finding the multiplicative inverse is
+done brute force.
+
+2. **rc[]**
+
+rc is generated when the class is loaded. It is generated via rc[i] = 2 * rc[i - 1], rc[1] = 1
+
+3. **RoundKeys**
+
+RoundKeys are generated when the object is created. They are created in via the key string.
+Each object will have exactly one set round keys.
+
+4. **Encrypt** 
+
+Encrypt is performed via following the order of matrix manipulation that is done during AES. 
+A good outline for these steps can be found here:
+https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
+5. **Decrypt**
+
+Decrypt implemented by doing encrypt in reverse.
+
+

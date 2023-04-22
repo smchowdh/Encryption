@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 public class AesEncryptionTest {
 
     @Test
-    public void TestDefaultConstructor() {
+    public void testDefaultConstructor() {
         AesEncryption aes = new AesEncryption();
         String key = aes.getKey();
         assertTrue(Pattern.matches("^[0-9a-f]+$", aes.getKey()));
@@ -17,7 +17,7 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestValidBitsConstructor() {
+    public void testValidBitsConstructor() {
         AesEncryption aes128 = new AesEncryption(128);
         AesEncryption aes192 = new AesEncryption(192);
         AesEncryption aes256 = new AesEncryption(256);
@@ -33,7 +33,7 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestInvalidBitsConstructor() {
+    public void testInvalidBitsConstructor() {
         try {
             new AesEncryption(0);
         } catch (IllegalArgumentException e) {
@@ -42,7 +42,7 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestInvalidKeyConstructor() {
+    public void testInvalidKeyConstructor() {
         try {
             new AesEncryption("1234");
         } catch (IllegalArgumentException e) {
@@ -57,28 +57,28 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestEncrypt() {
+    public void testEncrypt() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.encrypt("Two One Nine Two");
         assertEquals("29c3505f571420f6402299b31a02d73ab3e46f11ba8d2b97c18769449a89e868", result);
     }
 
     @Test
-    public void TestDecrypt() {
+    public void testDecrypt() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.decrypt("29c3505f571420f6402299b31a02d73ab3e46f11ba8d2b97c18769449a89e868");
         assertEquals("Two One Nine Two", result);
     }
 
     @Test
-    public void TestValidEncryptPadding() {
+    public void testValidEncryptPadding() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.encrypt("Two One Nine Twoo");
         assertEquals("29c3505f571420f6402299b31a02d73a5ce64f585e7acac4767fdfe0480d3115", result);
     }
 
     @Test
-    public void TestInvalidDecryptPadding() {
+    public void testInvalidDecryptPadding() {
 
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         try {
@@ -94,28 +94,28 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestValidDecryptPadding() {
+    public void testValidDecryptPadding() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.decrypt("29c3505f571420f6402299b31a02d73a5ce64f585e7acac4767fdfe0480d3115");
         assertEquals("Two One Nine Twoo", result);
     }
 
     @Test
-    public void TestEncryptInitializationPlainText() {
+    public void testEncryptInitializationPlainText() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.encrypt("Two One Nine Twoo", "0000000000000000");
         assertEquals("4129e0ba5c0278413b95c176d047e043491bfcf546cf6193375e8f5f6f50082c", result);
     }
 
     @Test
-    public void TestEncryptInitializationHexTex() {
+    public void testEncryptInitializationHexTex() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String result = aes.encrypt("Two One Nine Twoo", "30303030303030303030303030303030");
         assertEquals("4129e0ba5c0278413b95c176d047e043491bfcf546cf6193375e8f5f6f50082c", result);
     }
 
     @Test
-    public void TestInvalidInitialization() {
+    public void testInvalidInitialization() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         try {
             aes.encrypt("Two One Nine Two", "0");
@@ -125,7 +125,7 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestDecryptInitialization() {
+    public void testDecryptInitialization() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         String cypherText = aes.decrypt("4129e0ba5c0278413b95c176d047e043491bfcf546cf6193375e8f5f6f50082c", "0000000000000000");
         assertEquals("Two One Nine Twoo", cypherText);
@@ -134,7 +134,7 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void InvalidDecryptMessage() {
+    public void testInvalidDecryptMessage() {
         AesEncryption aes = new AesEncryption("Thats my Kung Fu");
         try {
             aes.decrypt("0123456789");
@@ -150,28 +150,28 @@ public class AesEncryptionTest {
     }
 
     @Test
-    public void TestEncryption192() {
+    public void testEncryption192() {
         AesEncryption aes = new AesEncryption("12345678password87654321", 192);
         String result = aes.encrypt("Two One Nine Two");
         assertEquals("8076212049d01a5a221ffa8794ea70490b8cac9b499697490eb5077938c324ed", result);
     }
 
     @Test
-    public void TestDecryption192() {
+    public void testDecryption192() {
         AesEncryption aes = new AesEncryption("12345678password87654321", 192);
         String result = aes.decrypt("8076212049d01a5a221ffa8794ea70490b8cac9b499697490eb5077938c324ed");
         assertEquals("Two One Nine Two", result);
     }
 
     @Test
-    public void TestEncryption256() {
+    public void testEncryption256() {
         AesEncryption aes = new AesEncryption("1234567890abcdefpassword87654321", 256);
         String result = aes.encrypt("Two One Nine Two");
         assertEquals("660afbb67ffd0645dcde7f7c918db0961d4f443e83d8cf97853970d5f610b479", result);
     }
 
     @Test
-    public void TestDecryption256() {
+    public void testDecryption256() {
         AesEncryption aes = new AesEncryption("1234567890abcdefpassword87654321", 256);
         String result = aes.decrypt("660afbb67ffd0645dcde7f7c918db0961d4f443e83d8cf97853970d5f610b479");
         assertEquals("Two One Nine Two", result);
