@@ -13,6 +13,21 @@ and FPGA and then compare their ms.
 
 Uses Rijndael's algorithm to encrypt and decrypt text. Can do AES-128, AES-192 or AES-256 in ECB or in CBC with an initialization vector. See how to use the class in test/AesEncryptionTest.java
 
+### How do use this?
+* You can use it via the AesEncryption class. You can create on Object via its contructors and define
+its key in hexadecimal or plaintext.
+
+* After that you can run encrypt() or decrypt() methods of the class and it will run the encryption algorithms
+against the key. If you want to encrypt or decrypt with a different key, create a new object with the key you had in mind.
+
+* You can also create and object without a key and it will automatically generate a key for you. 
+You can then retrieve this key via the getKey() method.
+* You can encrypt in two modes, ebc and cbc. Also supports AES128 (default)
+  AES192, and AES256. See method summary
+
+* See examples in ```src/tests``` and ```src/main``` on how to use it.
+
+
 ### Constructors
 
 | Constructor and Description                                                                                                                                                                         |
@@ -71,14 +86,15 @@ Uses Rijndael's algorithm to encrypt and decrypt text. Can do AES-128, AES-192 o
 
 ### Implementation Details
 1. **Rijndael's S-Box** 
-   
+
 Rijndael's S-box is generated when the class is loaded. It is generated via finding the
-multiplicative inverse of each constant in GF(2). Finding the multiplicative inverse is
+multiplicative inverse of each constant in ```GF(2)```. Finding the multiplicative inverse is
 done brute force.
+
 
 2. **rc[]**
 
-rc is generated when the class is loaded. It is generated via rc[i] = 2 * rc[i - 1], rc[1] = 1
+rc is generated when the class is loaded. It is generated via ```rc[i] = 2 * rc[i - 1], rc[1] = 1```
 
 3. **RoundKeys**
 
@@ -93,6 +109,6 @@ https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines
 
 5. **Decrypt**
 
-Decrypt implemented by doing encrypt in reverse.
+Decrypt implemented by doing encrypt in reverse nothing too special to it
 
 
