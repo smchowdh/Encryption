@@ -13,7 +13,7 @@ and FPGA and then compare their ms.
 
 Uses Rijndael's algorithm to encrypt and decrypt text. Can do AES-128, AES-192 or AES-256 in ECB or in CBC with an initialization vector. See how to use the class in test/AesEncryptionTest.java
 
-### How do use this?
+### How do I use this?
 * You can use it via the AesEncryption class. You can create on Object via its contructors and define
 its key in hexadecimal or plaintext.
 
