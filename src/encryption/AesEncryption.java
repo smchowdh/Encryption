@@ -34,6 +34,11 @@ public class AesEncryption implements Encryption {
      */
     private int[][] roundKeys;
 
+    static {
+        calculateRijndaelSBox();
+        calculateRC();
+    }
+    
     private static int multiplyGF(int num1, int num2) {
 
         //Multiply
@@ -115,11 +120,6 @@ public class AesEncryption implements Encryption {
             rc[i] = multiplyGF(2, rc[ i - 1]);
     }
 
-    static {
-        calculateRijndaelSBox();
-        calculateRC();
-    }
-    
     private String generateRandomKey() {
 
         StringBuilder key = new StringBuilder();

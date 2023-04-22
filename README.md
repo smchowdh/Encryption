@@ -90,6 +90,7 @@ Each object will have exactly one set round keys.
 Encrypt is performed via following the order of matrix manipulation that is done during AES. 
 A good outline for these steps can be found here:
 https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/aes-development/rijndael-ammended.pdf
+
 5. **Decrypt**
 
 Decrypt implemented by doing encrypt in reverse.
